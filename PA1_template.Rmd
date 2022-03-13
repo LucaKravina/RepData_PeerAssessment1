@@ -5,21 +5,100 @@ output:
     keep_md: true
 ---
 
-
-## Loading and preprocessing the data
+```{r}
+activity <- read.csv("C:/Users/Luca/Desktop/activity.csv")
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
 
 
 
 ## What is mean total number of steps taken per day?
+Mean=9354.23
+Median= 10395
+```{r}
+stepsday <- tapply(activity$steps, activity$date, sum, na.rm=TRUE, simplify=T)
+stepsday  <- stepsday[!is.na(stepsday)]
+
+hist(stepsday)
+mean(stepsday)
+median(stepsday)
+
+```
 
 
 
 ## What is the average daily activity pattern?
 
+```{r}
+inter <- activity %>% 
+  group_by(interval) %>%
+  summarise(steps = mean(steps, na.rm =TRUE))
+
+
+ggplot(data=inter, aes(x=interval, y=steps)) +
+    geom_line()
+
+```
+
+```{r}
+max_inter <- inter[which.max(inter$steps),]$interval
+max_inter
+```
 
 
 ## Imputing missing values
+```{r}
+sum(is.na(activity$steps))
+```
+```{r}
+imputed_data <- activity%>%
+  mutate(
+    steps = case_when(
+      is.na(steps) ~ inter$steps[match(activity$interval, activity$interval)],      
+      TRUE ~ as.numeric(steps)
+    ))
 
+steps_imputed <- imputed_data %>% group_by(date) %>% summarise(daily_steps = sum(steps))
 
+ggplot(steps_imputed, aes(daily_steps)) + 
+  geom_histogram(binwidth = 2000)+
+   xlab("Total number of steps")
+```
+
+```{r}
+imputed_mean = mean(steps_imputed$daily_steps, na.rm=TRUE)
+imputed_median = median(steps_imputed$daily_steps, na.rm=TRUE)
+
+```
+
+```{r}
+imputed_mean
+```
+```{r}
+imputed_median
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+```{r}
+imputed_data$date <- as.Date(strptime(imputed_data$date, format="%Y-%m-%d"))
+imputed_data$day <- weekdays(imputed_data$date)
+for (i in 1:nrow(imputed_data)) {
+    if (imputed_data[i,]$day %in% c("Saturday","Sunday")) {
+        imputed_data[i,]$day<-"weekend"
+    }
+    else{
+        imputed_data[i,]$day<-"weekday"
+    }
+}
+by_day <- aggregate(imputed_data$steps ~ imputed_data$interval + imputed_data$day, imputed_data, mean)
+
+names(by_day) <- c("interval", "day", "steps")
+ggplot(data=by_day, aes(x=interval, y=steps)) +
+    geom_line()+
+  facet_wrap(~day)
+```
+
